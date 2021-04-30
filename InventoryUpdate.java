@@ -145,7 +145,7 @@ public final class InventoryUpdate {
 
             // If the container was added in a newer versions than the current, return.
             if (container.getContainerVersion() > getVersion() && useContainers()) {
-                Bukkit.getLogger().warning("[Roulette] This container doesn't work on your current version.");
+                Bukkit.getLogger().warning("This container doesn't work on your current version.");
                 return;
             }
 
