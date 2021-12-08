@@ -19,7 +19,7 @@
  * FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
  * ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
-package me.matsubara.blencraft.util;
+package me.matsubara.roulette.util;
 
 import com.cryptomorin.xseries.ReflectionUtils;
 import org.apache.commons.lang.Validate;
@@ -29,9 +29,11 @@ import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.Arrays;
 
 /**
@@ -52,9 +54,8 @@ public final class InventoryUpdate {
     private final static Class<?> CONTAINER_CLASS;
 
     // Methods.
-    private static Method getHandle;
-    private static Method getBukkitView;
-    private static Method updateInventory;
+    private final static MethodHandle getHandle;
+    private final static MethodHandle getBukkitView;
 
     // Constructors.
     private static Constructor<?> chatMessageConstructor;
@@ -75,15 +76,15 @@ public final class InventoryUpdate {
         ENTITY_PLAYER_CLASS = ReflectionUtils.getNMSClass("server.level", "EntityPlayer");
         CONTAINER_CLASS = ReflectionUtils.getNMSClass("world.inventory", "Container");
 
+        MethodHandle handle = null, bukkitView = null;
+
         try {
             int version = ReflectionUtils.VER;
+            MethodHandles.Lookup lookup = MethodHandles.lookup();
 
             // Initialize methods.
-            getHandle = CRAFT_PLAYER_CLASS.getMethod("getHandle");
-            getBukkitView = CONTAINER_CLASS.getMethod("getBukkitView");
-            updateInventory = (version == 17) ?
-                    CONTAINER_CLASS.getMethod("updateInventory") :
-                    ENTITY_PLAYER_CLASS.getMethod("updateInventory", CONTAINER_CLASS);
+            handle = lookup.findVirtual(CRAFT_PLAYER_CLASS, "getHandle", MethodType.methodType(ENTITY_PLAYER_CLASS));
+            bukkitView = lookup.findVirtual(CONTAINER_CLASS, "getBukkitView", MethodType.methodType(InventoryView.class));
 
             // Initialize constructors.
             chatMessageConstructor = CHAT_MESSAGE_CLASS.getConstructor(String.class, Object[].class);
@@ -94,11 +95,17 @@ public final class InventoryUpdate {
                             PACKET_PLAY_OUT_OPEN_WINDOW_CLASS.getConstructor(int.class, String.class, I_CHAT_BASE_COMPONENT_CLASS, int.class);
 
             // Initialize fields.
-            activeContainerField = (version == 17) ? ENTITY_PLAYER_CLASS.getField("bV") : ENTITY_PLAYER_CLASS.getField("activeContainer");
-            windowIdField = (version == 17) ? CONTAINER_CLASS.getField("j") : CONTAINER_CLASS.getField("windowId");
+            activeContainerField = (version == 17) ?
+                    ENTITY_PLAYER_CLASS.getField("bV") : (version == 18) ?
+                    ENTITY_PLAYER_CLASS.getField("bW") :
+                    ENTITY_PLAYER_CLASS.getField("activeContainer");
+            windowIdField = (version > 16) ? CONTAINER_CLASS.getField("j") : CONTAINER_CLASS.getField("windowId");
         } catch (ReflectiveOperationException exception) {
             exception.printStackTrace();
         }
+
+        getHandle = handle;
+        getBukkitView = bukkitView;
     }
 
     /**
@@ -174,15 +181,9 @@ public final class InventoryUpdate {
             ReflectionUtils.sendPacketSync(player, packet);
 
             // Update inventory.
-            if (ReflectionUtils.VER == 17) {
-                // EntityPlayer#bV{activeContainer}.updateInventory();
-                updateInventory.invoke(activeContainer);
-            } else {
-                // EntityPlayer#updateInventory(activeContainer);
-                updateInventory.invoke(entityPlayer, activeContainer);
-            }
-        } catch (ReflectiveOperationException exception) {
-            exception.printStackTrace();
+            player.updateInventory();
+        } catch (Throwable throwable) {
+            throwable.printStackTrace();
         }
     }
 
@@ -234,7 +235,7 @@ public final class InventoryUpdate {
         private final String minecraftName;
         private final String[] inventoryTypesNames;
 
-        private final char[] alphabet = "abcdefghijklmnopqrstuvwxyz".toCharArray();
+        private final static char[] alphabet = "abcdefghijklmnopqrstuvwxyz".toCharArray();
 
         Containers(int containerVersion, String minecraftName, String... inventoryTypesNames) {
             this.containerVersion = containerVersion;
@@ -272,8 +273,8 @@ public final class InventoryUpdate {
                 if (!useContainers()) return getMinecraftName();
                 int version = ReflectionUtils.VER;
                 String name = (version == 14 && this == CARTOGRAPHY_TABLE) ? "CARTOGRAPHY" : name();
-                // In 1.17, containers go from "a" to "x".
-                if (version == 17) name = String.valueOf(alphabet[ordinal()]);
+                // Since 1.17, containers go from "a" to "x".
+                if (version > 16) name = String.valueOf(alphabet[ordinal()]);
                 Field field = CONTAINERS_CLASS.getField(name);
                 return field.get(null);
             } catch (ReflectiveOperationException exception) {
