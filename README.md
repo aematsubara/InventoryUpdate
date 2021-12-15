@@ -1,4 +1,6 @@
 # InventoryUpdate
+(**You need [ReflectionUtils](https://github.com/CryptoMorin/XSeries/blob/7477ef5c434c40c89b9a6f4e180f4d5d69672e2f/src/main/java/com/cryptomorin/xseries/ReflectionUtils.java)**)
+
 With this resource, you can update the title of almost every inventory (some limitations, read below) without the need of reopening the inventory or resetting the cursor.
 
 Some limitations / notes:
