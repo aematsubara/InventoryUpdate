@@ -23,6 +23,8 @@ package me.matsubara.roulette.util;
 
 import com.cryptomorin.xseries.ReflectionUtils;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Sets;
+
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryType;
@@ -68,6 +70,8 @@ public final class InventoryUpdate {
 
     // Methods factory.
     private final static MethodHandles.Lookup LOOKUP = MethodHandles.lookup();
+
+    private final static Set<String> UNOPENABLES = Sets.newHashSet("CRAFTING", "CREATIVE", "PLAYER");
 
     static {
         boolean supports19 = ReflectionUtils.supports(19);
@@ -145,7 +149,7 @@ public final class InventoryUpdate {
             if ((type == InventoryType.WORKBENCH || type == InventoryType.ANVIL) && !useContainers()) return;
 
             // You can't reopen crafting, creative and player inventory.
-            if (Arrays.asList("CRAFTING", "CREATIVE", "PLAYER").contains(type.name())) return;
+            if (UNOPENABLES.contains(type.name())) return;
 
             int size = view.getTopInventory().getSize();
 
